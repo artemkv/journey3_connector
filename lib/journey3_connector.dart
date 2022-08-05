@@ -1,19 +1,27 @@
 library journey3_connector;
 
+import 'package:journey3_connector/src/idgen.dart';
 import 'package:logging/logging.dart';
 
-import 'domain.dart';
-import 'rest.dart';
-import 'dateutil.dart';
-import 'persistence.dart';
+import 'src/domain.dart';
+import 'src/rest.dart';
+import 'src/dateutil.dart';
+import 'src/persistence.dart';
 
 const maxSeqLength = 100;
 
 final log = Logger('Journey');
-Journey journey = Journey();
+Journey journey = Journey(RestApi(), Persistence(), Timeline(), IdGenerator());
 
 class Journey {
+  final RestApi restApi;
+  final Persistence persistence;
+  final Timeline timeline;
+  final IdGenerator idGenerator;
+
   Session? currentSession;
+
+  Journey(this.restApi, this.persistence, this.timeline, this.idGenerator);
 
   static Journey instance() {
     return journey;
@@ -30,16 +38,17 @@ class Journey {
       String accountId, String appId, String version, bool isRelease) async {
     try {
       // start new session
-      var header = SessionHeader(accountId, appId, version, isRelease);
-      currentSession = Session(
-          header.id, accountId, appId, version, isRelease, header.start);
+      var header = SessionHeader(
+          accountId, appId, version, isRelease, timeline, idGenerator);
+      currentSession = Session(header.id, accountId, appId, version, isRelease,
+          header.start, timeline);
       log.info('Journey3: Started new session ${currentSession!.id}');
 
       // report previous session
-      final session = await loadLastSession();
+      final session = await persistence.loadLastSession();
       if (session != null) {
         log.info('Journey3: Report the end of the previous session');
-        await postSession(session);
+        await restApi.postSession(session);
       }
 
       // update current session based on the previous one
@@ -53,7 +62,7 @@ class Journey {
         header.firstLaunchThisYear = true;
         header.firstLaunchThisVersion = true;
       } else {
-        var today = DateTime.now().toUtc();
+        var today = timeline.nowUtc();
         var lastSessionStart = session.start;
 
         if (!lastSessionStart.isSameHour(today)) {
@@ -81,11 +90,11 @@ class Journey {
       }
 
       // save current session
-      await saveSession(currentSession!);
+      await persistence.saveSession(currentSession!);
 
       // report the new session (header)
       log.info('Journey3: Report the start of a new session');
-      await postSessionHeader(header);
+      await restApi.postSessionHeader(header);
     } catch (err) {
       log.warning('Journey3: Failed to initialize Journey: ${err.toString()}');
     }
@@ -144,10 +153,10 @@ class Journey {
       }
 
       // update endtime
-      currentSession!.end = DateTime.now().toUtc();
+      currentSession!.end = timeline.nowUtc();
 
       // save session
-      await saveSession(currentSession!);
+      await persistence.saveSession(currentSession!);
     } catch (err) {
       log.warning('Journey3: Cannot update session: ${err.toString()}');
     }
@@ -181,11 +190,11 @@ class Journey {
 
     try {
       if (currentSession!.newStage.stage < stage) {
-        currentSession!.newStage = Stage(stage, stageName);
+        currentSession!.newStage = Stage(stage, stageName, timeline);
       }
 
       // save session
-      await saveSession(currentSession!);
+      await persistence.saveSession(currentSession!);
     } catch (err) {
       log.warning('Journey3: Cannot update session: ${err.toString()}');
     }

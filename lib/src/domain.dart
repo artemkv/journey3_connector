@@ -1,8 +1,12 @@
-import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 
-const uuid = Uuid();
+import 'dateutil.dart';
+import 'idgen.dart';
 
 class SessionHeader {
+  final Timeline timeline;
+  final IdGenerator idGenerator;
+
   final String t = "shead";
   final String v = "1.1.0";
 
@@ -22,12 +26,14 @@ class SessionHeader {
   bool firstLaunchThisYear = false;
   bool firstLaunchThisVersion = false;
 
-  Stage prevStage = Stage.newUser();
+  Stage prevStage;
 
-  SessionHeader(this.accountId, this.appId, this.version, this.isRelease)
-      : id = uuid.v4(),
-        start = DateTime.now().toUtc(),
-        since = DateTime.now().toUtc();
+  SessionHeader(this.accountId, this.appId, this.version, this.isRelease,
+      this.timeline, this.idGenerator)
+      : id = idGenerator.newId(),
+        start = timeline.nowUtc(),
+        since = timeline.nowUtc(),
+        prevStage = Stage.newUser(timeline);
 
   Map<String, dynamic> toJson() => {
         't': t,
@@ -47,9 +53,37 @@ class SessionHeader {
         'fst_launch_version': firstLaunchThisVersion,
         'prev_stage': prevStage,
       };
+
+  @override
+  bool operator ==(Object other) {
+    return other is SessionHeader &&
+        t == other.t &&
+        v == other.v &&
+        id == other.id &&
+        accountId == other.accountId &&
+        appId == other.appId &&
+        version == other.version &&
+        isRelease == other.isRelease &&
+        start == other.start &&
+        since == other.since &&
+        firstLaunch == other.firstLaunch &&
+        firstLaunchThisHour == other.firstLaunchThisHour &&
+        firstLaunchToday == other.firstLaunchToday &&
+        firstLaunchThisMonth == other.firstLaunchThisMonth &&
+        firstLaunchThisYear == other.firstLaunchThisYear &&
+        firstLaunchThisVersion == other.firstLaunchThisVersion &&
+        prevStage == other.prevStage;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hashAll([t, v, id]);
+  }
 }
 
 class Session {
+  final Timeline timeline;
+
   final String t = "stail";
   final String v = "1.1.0";
 
@@ -65,8 +99,8 @@ class Session {
 
   bool firstLaunch = false;
 
-  Stage prevStage = Stage.newUser();
-  Stage newStage = Stage.newUser();
+  Stage prevStage;
+  Stage newStage;
 
   bool hasError = false;
   bool hasCrash = false;
@@ -75,22 +109,24 @@ class Session {
   List<String> eventSequence = [];
 
   Session(this.id, this.accountId, this.appId, this.version, this.isRelease,
-      this.start)
+      this.start, this.timeline)
       : end = start,
-        since = start;
+        since = start,
+        prevStage = Stage.newUser(timeline),
+        newStage = Stage.newUser(timeline);
 
-  Session.fromJson(Map<String, dynamic> json)
+  Session.fromJson(Map<String, dynamic> json, this.timeline)
       : id = json['id'] ?? uuid.v4(),
         since =
             (json['since'] == null || DateTime.tryParse(json['since']) == null)
-                ? DateTime.now().toUtc()
+                ? timeline.nowUtc()
                 : DateTime.tryParse(json['since'])!,
         start =
             (json['start'] == null || DateTime.tryParse(json['start']) == null)
-                ? DateTime.now().toUtc()
+                ? timeline.nowUtc()
                 : DateTime.tryParse(json['start'])!,
         end = (json['end'] == null || DateTime.tryParse(json['end']) == null)
-            ? DateTime.now().toUtc()
+            ? timeline.nowUtc()
             : DateTime.tryParse(json['end'])!,
         accountId = json['acc'] ?? '',
         appId = json['aid'] ?? '',
@@ -104,11 +140,11 @@ class Session {
         eventSequence =
             json['evt_seq'] != null ? json['evt_seq'].cast<String>() : [],
         prevStage = json['prev_stage'] != null
-            ? Stage.fromJson(json['prev_stage'])
-            : Stage.newUser(),
+            ? Stage.fromJson(json['prev_stage'], timeline)
+            : Stage.newUser(timeline),
         newStage = json['new_stage'] != null
-            ? Stage.fromJson(json['new_stage'])
-            : Stage.newUser();
+            ? Stage.fromJson(json['new_stage'], timeline)
+            : Stage.newUser(timeline);
 
   Map<String, dynamic> toJson() => {
         't': t,
@@ -129,22 +165,51 @@ class Session {
         'prev_stage': prevStage,
         'new_stage': newStage,
       };
+
+  @override
+  bool operator ==(Object other) {
+    return other is Session &&
+        t == other.t &&
+        v == other.v &&
+        id == other.id &&
+        accountId == other.accountId &&
+        appId == other.appId &&
+        version == other.version &&
+        isRelease == other.isRelease &&
+        start == other.start &&
+        end == other.end &&
+        since == other.since &&
+        firstLaunch == other.firstLaunch &&
+        prevStage == other.prevStage &&
+        newStage == other.newStage &&
+        hasError == other.hasError &&
+        hasCrash == other.hasCrash &&
+        mapEquals(eventCounts, other.eventCounts) &&
+        listEquals(eventSequence, other.eventSequence);
+  }
+
+  @override
+  int get hashCode {
+    return Object.hashAll([t, v, id]);
+  }
 }
 
 class Stage {
+  final Timeline timeline;
+
   final DateTime ts;
   final int stage;
   final String name;
 
-  Stage(this.stage, this.name) : ts = DateTime.now().toUtc();
+  Stage(this.stage, this.name, this.timeline) : ts = timeline.nowUtc();
 
-  Stage.newUser()
+  Stage.newUser(this.timeline)
       : stage = 1,
         name = "new_user",
-        ts = DateTime.now().toUtc();
+        ts = timeline.nowUtc();
 
-  Stage.fromJson(Map<String, dynamic> json)
-      : ts = DateTime.tryParse(json['ts']) ?? DateTime.now().toUtc(),
+  Stage.fromJson(Map<String, dynamic> json, this.timeline)
+      : ts = DateTime.tryParse(json['ts']) ?? timeline.nowUtc(),
         stage = json['stage'] ?? 1,
         name = json['name'] ?? 'new_user';
 
@@ -153,6 +218,19 @@ class Stage {
         'stage': stage,
         'name': name,
       };
+
+  @override
+  bool operator ==(Object other) {
+    return other is Stage &&
+        ts == other.ts &&
+        stage == other.stage &&
+        name == other.name;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hashAll([ts, stage, name]);
+  }
 }
 
 class ApiResponseError {

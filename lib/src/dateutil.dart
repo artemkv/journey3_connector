@@ -18,3 +18,9 @@ extension DateFunctions on DateTime {
         hour == other.hour;
   }
 }
+
+class Timeline {
+  DateTime nowUtc() {
+    return DateTime.now().toUtc();
+  }
+}
