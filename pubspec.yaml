@@ -1,7 +1,8 @@
 name: journey3_connector
 description: A new Flutter package project.
 version: 1.0.0
-homepage:
+homepage: https://github.com/artemkv/journey3_connector
+repository: https://github.com/artemkv/journey3_connector
 
 environment:
   sdk: ">=2.12.0 <3.0.0"
