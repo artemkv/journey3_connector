@@ -204,6 +204,7 @@ void main() {
     expectedSession.firstLaunch = true;
     expectedSession.eventCounts = {crash: 1};
     expectedSession.eventSequence = [crash];
+    expectedSession.hasError = true;
     expectedSession.hasCrash = true;
     verify(persistence.saveSession(argThat(equals(expectedSession))));
   });

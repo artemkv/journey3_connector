@@ -1,6 +1,6 @@
 name: journey3_connector
 description: Flutter connector for Journey3 (Lightweight Anonymous Mobile Analytics)
-version: 1.0.0
+version: 1.1.0
 homepage: https://github.com/artemkv/journey3_connector
 repository: https://github.com/artemkv/journey3_connector
 

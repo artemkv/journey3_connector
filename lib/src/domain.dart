@@ -116,7 +116,7 @@ class Session {
         newStage = Stage.newUser(timeline);
 
   Session.fromJson(Map<String, dynamic> json, this.timeline)
-      : id = json['id'] ?? uuid.v4(),
+      : id = json['id'] ?? uuid.v4(), // TODO: use id generator
         since =
             (json['since'] == null || DateTime.tryParse(json['since']) == null)
                 ? timeline.nowUtc()

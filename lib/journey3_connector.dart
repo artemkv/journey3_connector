@@ -48,7 +48,12 @@ class Journey {
       final session = await persistence.loadLastSession();
       if (session != null) {
         log.info('Journey3: Report the end of the previous session');
-        await restApi.postSession(session);
+        try {
+          await restApi.postSession(session);
+        } catch (err) {
+          log.warning(
+              'Journey3: Failed to report the end of the previous session: ${err.toString()}');
+        }
       }
 
       // update current session based on the previous one
@@ -134,7 +139,7 @@ class Journey {
           (currentSession!.eventCounts[eventName] ?? 0) + 1;
 
       // set error
-      if (isError) {
+      if (isError || isCrash) {
         currentSession!.hasError = true;
       }
       if (isCrash) {
@@ -179,7 +184,7 @@ class Journey {
   Future<void> reportStageTransition(int stage, String stageName) async {
     if (currentSession == null) {
       log.warning(
-          'Journey3: Cannot update stage. Journey have not been initialized.');
+          'Journey3: Cannot update session. Journey have not been initialized.');
       return;
     }
 
@@ -192,6 +197,9 @@ class Journey {
       if (currentSession!.newStage.stage < stage) {
         currentSession!.newStage = Stage(stage, stageName, timeline);
       }
+
+      // update endtime
+      currentSession!.end = timeline.nowUtc();
 
       // save session
       await persistence.saveSession(currentSession!);

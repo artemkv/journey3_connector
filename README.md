@@ -47,7 +47,7 @@ await Journey.instance()
 
 ### Report a crash
 
-Errors are yet another types of events:
+Crashes are yet another types of events:
 
 ```dart
 FlutterError.onError = (FlutterErrorDetails details) async {
